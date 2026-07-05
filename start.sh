@@ -7,7 +7,7 @@
 
 cd "$(dirname "$0")"
 
-if curl -s -o /dev/null --max-time 2 http://127.0.0.1:8000/api/status; then
+if curl -sf -o /dev/null --max-time 2 http://127.0.0.1:8000/api/status; then
   echo "Servern kör redan på port 8000 (logg: /tmp/game-helper-server.log)."
 else
   echo "Startar servern (logg: /tmp/game-helper-server.log)…"
