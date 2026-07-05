@@ -80,6 +80,41 @@ uvicorn server:app --port 8000
 **Tips för VR:** öppna sidan på surfplattan bredvid dig, eller kör den i telefonen.
 Push-to-talk-knappen är stor med flit — den ska gå att träffa med VR-headsetet på.
 
+## Ingen dator? Kör i molnet med GitHub Codespaces
+
+Har du bara en surfplatta eller mobil räcker det — servern kan köras i ett
+GitHub Codespace (en gratis molndator, upp till 60 timmar/månad). Repot har en
+färdig konfiguration i `.devcontainer/` som installerar allt och startar servern
+automatiskt. Bonus: Codespaces-adressen är HTTPS, så mikrofonen fungerar direkt
+i Chrome på plattan.
+
+**Engångssetup (ca 5 minuter):**
+
+1. Skapa/logga in på ett GitHub-konto och forka eller öppna det här repot.
+2. Gå till <https://github.com/settings/codespaces> → **New secret** →
+   namn `ANTHROPIC_API_KEY`, värde = din nyckel från platform.claude.com.
+   Bocka i att den gäller för det här repot.
+
+**Varje spelkväll:**
+
+1. Öppna repot i Chrome på plattan → grön **Code**-knapp → fliken
+   **Codespaces** → **Create codespace** (eller öppna ditt befintliga).
+2. Vänta tills servern startat (första gången tar bygget någon minut).
+3. Öppna fliken **PORTS** (i panelen längst ner), leta upp port **8000**
+   och tryck på jordglobs-ikonen (*Open in browser*).
+4. Klart — sidan öppnas i en ny flik. Starta PS5-streamen till Twitch,
+   klistra in Twitch-URL:en och håll in 🎙️-knappen.
+
+**Bra att veta:**
+
+- Codespacet pausas automatiskt efter ~30 minuters inaktivitet (frågorna du
+  ställer räknas som aktivitet). Somnar det: öppna codespacet igen så startar
+  servern om av sig själv.
+- Port 8000 är privat som standard — bara din inloggade webbläsare kommer åt
+  den. Gör den inte publik, då kan vem som helst med länken använda din API-nyckel.
+- Gratiskvoten (120 kärntimmar/månad ≈ 60 timmar på minsta maskinen) ser du på
+  <https://github.com/settings/billing>.
+
 ### Valfritt: Discord-textbot
 
 ```bash
