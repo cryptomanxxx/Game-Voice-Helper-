@@ -145,7 +145,7 @@ async def saga(vc, text: str):
             print(f"TTS-fel (edge-tts): {e} — svaret i text: {text}")
             return
         if vc.is_playing():
-            vc.stop()
+            vc.stop_playing()  # inte vc.stop() — den dödar även mikrofonmottagningen
         loop = asyncio.get_running_loop()
         klar = asyncio.Event()
         vc.play(discord.FFmpegPCMAudio(fil), after=lambda _: loop.call_soon_threadsafe(klar.set))
@@ -209,9 +209,13 @@ async def on_voice_state_update(member, before, after):
     if member.bot:
         return
     vc = member.guild.voice_client
-    if after.channel is not None and vc is None:
-        # En människa gick med i en röstkanal — följ efter
-        await anslut(after.channel)
+    if after.channel is not None:
+        # En människa gick med i (eller bytte till) en röstkanal — följ efter
+        if vc is None:
+            await anslut(after.channel)
+        elif vc.channel != after.channel:
+            await vc.disconnect()
+            await anslut(after.channel)
     elif before.channel is not None and vc is not None and vc.channel == before.channel:
         # Lämna när det bara är bottar kvar
         if all(m.bot for m in before.channel.members):

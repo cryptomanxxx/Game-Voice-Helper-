@@ -60,8 +60,10 @@ pip install -r requirements.txt
 
 ```bash
 cp .env.example .env   # fyll i ANTHROPIC_API_KEY
-export $(grep -v '^#' .env | xargs)
 ```
+
+`start.sh` läser `.env` automatiskt. Startar du servern för hand istället:
+`set -a; source .env; set +a`
 
 | Variabel | Standard | Beskrivning |
 |---|---|---|

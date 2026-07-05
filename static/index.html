@@ -238,8 +238,22 @@ if (SR) {
   };
   rec.onerror = e => { $("pttStatus").textContent = "Mikrofonfel: " + e.error; };
 
-  const start = e => { e.preventDefault(); hfStop(); transcript = ""; $("ptt").classList.add("listening"); $("pttStatus").textContent = "Lyssnar…"; try { rec.start(); } catch {} };
-  const stop  = e => { e.preventDefault(); try { rec.stop(); } catch {} };
+  // Handsfree-igenkänningen stoppas asynkront, så rec.start() kan avvisas
+  // direkt efter hfStop() — försök igen en kort stund medan knappen hålls in,
+  // och återuppta handsfree om det ändå inte går.
+  let pttHalls = false;
+  const pttStarta = forsok => {
+    if (!pttHalls) { $("ptt").classList.remove("listening"); if (hfOn && !speaking) hfStart(); return; }
+    try { rec.start(); }
+    catch {
+      if (forsok > 0) { setTimeout(() => pttStarta(forsok - 1), 100); return; }
+      $("ptt").classList.remove("listening");
+      $("pttStatus").textContent = "Mikrofonen var upptagen — prova igen";
+      if (hfOn && !speaking) hfStart();
+    }
+  };
+  const start = e => { e.preventDefault(); pttHalls = true; hfStop(); transcript = ""; $("ptt").classList.add("listening"); $("pttStatus").textContent = "Lyssnar…"; pttStarta(6); };
+  const stop  = e => { e.preventDefault(); pttHalls = false; try { rec.stop(); } catch {} };
   $("ptt").addEventListener("mousedown", start);
   $("ptt").addEventListener("mouseup", stop);
   $("ptt").addEventListener("touchstart", start, {passive: false});
@@ -326,7 +340,7 @@ function hfStart() {
 
 function hfStop() {
   const r = hfRec; hfRec = null;
-  if (r) { r.onend = null; try { r.stop(); } catch {} }
+  if (r) { r.onend = null; r.onresult = null; try { r.abort(); } catch {} }
 }
 
 function hfToggle(state) {
