@@ -47,6 +47,7 @@
     transition: transform .1s, background .2s;
   }
   #ptt.listening { background: #da3633; border-color: #f85149; transform: scale(1.08); }
+  #hfBtn.active { background: #238636; border-color: #2ea043; }
   #svar {
     min-height: 60px; padding: 12px; border-radius: 8px; background: #0d1117;
     border: 1px solid #30363d; white-space: pre-wrap; line-height: 1.5;
@@ -85,6 +86,12 @@
 
     <button id="ptt" title="Håll intryckt och prata">🎙️</button>
     <div class="status" id="pttStatus" style="text-align:center">Håll knappen intryckt och ställ din fråga (svenska)</div>
+
+    <div class="row">
+      <button id="hfBtn" title="Plattan lyssnar hela tiden — säg väckningsfrasen följt av din fråga">🎧 Handsfree: av</button>
+      <input type="text" id="wakePhrase" class="grow" placeholder="Väckningsfras" title="Frasen som väcker AI:n, t.ex. 'hej kompis'">
+    </div>
+    <div class="status" id="hfStatus" style="text-align:center"></div>
 
     <div class="row">
       <input type="text" id="textFraga" class="grow" placeholder="…eller skriv din fråga här">
@@ -190,13 +197,17 @@ $("textFraga").onkeydown = e => { if (e.key === "Enter") ask($("textFraga").valu
 $("repeatBtn").onclick = () => speak(lastSvar);
 
 // ---------- Text-till-tal (svenska) ----------
+// Pausar handsfree-lyssningen medan svaret läses upp, annars hör mikrofonen sitt eget svar.
 function speak(text) {
   if (!text || !window.speechSynthesis) return;
   speechSynthesis.cancel();
   const u = new SpeechSynthesisUtterance(text);
   u.lang = "sv-SE";
+  u.volume = 1;
   const sv = speechSynthesis.getVoices().find(v => v.lang.startsWith("sv"));
   if (sv) u.voice = sv;
+  u.onstart = () => { speaking = true; hfStop(); };
+  u.onend = u.onerror = () => { speaking = false; if (hfOn) hfStart(); };
   speechSynthesis.speak(u);
 }
 
@@ -223,10 +234,11 @@ if (SR) {
       $("pttStatus").textContent = "Hörde inget — prova igen";
     }
     transcript = "";
+    if (hfOn && !speaking) hfStart();  // återuppta handsfree-lyssningen
   };
   rec.onerror = e => { $("pttStatus").textContent = "Mikrofonfel: " + e.error; };
 
-  const start = e => { e.preventDefault(); transcript = ""; $("ptt").classList.add("listening"); $("pttStatus").textContent = "Lyssnar…"; try { rec.start(); } catch {} };
+  const start = e => { e.preventDefault(); hfStop(); transcript = ""; $("ptt").classList.add("listening"); $("pttStatus").textContent = "Lyssnar…"; try { rec.start(); } catch {} };
   const stop  = e => { e.preventDefault(); try { rec.stop(); } catch {} };
   $("ptt").addEventListener("mousedown", start);
   $("ptt").addEventListener("mouseup", stop);
@@ -236,6 +248,97 @@ if (SR) {
   $("ptt").disabled = true;
   $("pttStatus").textContent = "Röstinmatning stöds inte i denna webbläsare (använd Chrome/Edge) — skriv frågan istället.";
 }
+
+// ---------- Handsfree-läge (väckningsfras — för VR: ingen knapp behövs) ----------
+// Plattan lyssnar kontinuerligt. Säg väckningsfrasen + frågan i ett svep
+// ("hej kompis, hur öppnar jag dörren?") eller bara frasen och vänta på "Ja?".
+let hfOn = false;        // handsfree-läget aktivt
+let hfArmed = false;     // väckningsfras hörd, nästa mening är frågan
+let hfArmTimer = null;
+let hfRec = null;
+let speaking = false;    // TTS pågår — lyssna inte på oss själva
+
+$("wakePhrase").value = localStorage.getItem("wakePhrase") || "hej kompis";
+$("wakePhrase").onchange = () => {
+  localStorage.setItem("wakePhrase", $("wakePhrase").value);
+  if (hfOn) hfIdleStatus();
+};
+
+const norm = s => s.toLowerCase().replace(/[.,!?;:]/g, " ").replace(/\s+/g, " ").trim();
+
+function beep(freq = 880) {
+  try {
+    const ctx = beep.ctx || (beep.ctx = new (window.AudioContext || window.webkitAudioContext)());
+    const o = ctx.createOscillator(), g = ctx.createGain();
+    o.frequency.value = freq; o.connect(g); g.connect(ctx.destination);
+    g.gain.setValueAtTime(0.2, ctx.currentTime);
+    o.start(); o.stop(ctx.currentTime + 0.12);
+  } catch {}
+}
+
+function hfIdleStatus() { $("hfStatus").textContent = `Väntar på "${$("wakePhrase").value.trim() || "hej kompis"}"…`; }
+
+function hfHandleFinal(text) {
+  if (hfArmed) {
+    clearTimeout(hfArmTimer); hfArmed = false;
+    beep(660); hfIdleStatus();
+    ask(text.trim());
+    return;
+  }
+  const phrase = norm($("wakePhrase").value) || "hej kompis";
+  const t = norm(text);
+  const i = t.indexOf(phrase);
+  if (i === -1) return;
+  const fraga = t.slice(i + phrase.length).trim();
+  if (fraga.length > 2) {
+    beep(660);
+    ask(fraga);
+  } else {
+    // Bara frasen — bekräfta med röst och vänta på frågan
+    hfArmed = true;
+    $("hfStatus").textContent = "Lyssnar på din fråga…";
+    speak("Ja?");
+    hfArmTimer = setTimeout(() => { hfArmed = false; hfIdleStatus(); }, 12000);
+  }
+}
+
+function hfStart() {
+  if (!SR || hfRec || !hfOn || speaking) return;
+  hfRec = new SR();
+  hfRec.lang = "sv-SE";
+  hfRec.continuous = true;
+  hfRec.interimResults = true;
+  hfRec.onresult = e => {
+    for (let i = e.resultIndex; i < e.results.length; i++) {
+      if (e.results[i].isFinal) hfHandleFinal(e.results[i][0].transcript);
+    }
+  };
+  // Chrome avslutar kontinuerlig igenkänning då och då — starta om tyst
+  hfRec.onend = () => { hfRec = null; setTimeout(hfStart, 400); };
+  hfRec.onerror = e => {
+    if (e.error === "not-allowed" || e.error === "service-not-allowed") {
+      hfToggle(false);
+      $("hfStatus").textContent = "Mikrofontillstånd saknas — tillåt mikrofonen i Chrome och slå på igen.";
+    }
+  };
+  try { hfRec.start(); } catch {}
+}
+
+function hfStop() {
+  const r = hfRec; hfRec = null;
+  if (r) { r.onend = null; try { r.stop(); } catch {} }
+}
+
+function hfToggle(state) {
+  hfOn = state === undefined ? !hfOn : state;
+  $("hfBtn").classList.toggle("active", hfOn);
+  $("hfBtn").textContent = hfOn ? "🎧 Handsfree: på" : "🎧 Handsfree: av";
+  if (hfOn) { hfArmed = false; beep(880); hfIdleStatus(); hfStart(); }
+  else { clearTimeout(hfArmTimer); hfArmed = false; hfStop(); $("hfStatus").textContent = ""; }
+}
+
+$("hfBtn").onclick = () => hfToggle();
+if (!SR) $("hfBtn").disabled = true;
 </script>
 </body>
 </html>
