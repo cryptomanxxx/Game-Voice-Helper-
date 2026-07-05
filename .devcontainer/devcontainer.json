@@ -2,11 +2,11 @@
   "name": "Game Voice Helper",
   "image": "mcr.microsoft.com/devcontainers/python:3.12",
 
-  // Installera ffmpeg (frame-capture) och alla Python-beroenden vid första start
-  "postCreateCommand": "sudo apt-get update && sudo apt-get install -y ffmpeg && pip install -r requirements.txt",
+  // Installera ffmpeg (frame-capture), libopus (Discord-röst) och alla Python-beroenden
+  "postCreateCommand": "sudo apt-get update && sudo apt-get install -y ffmpeg libopus0 && pip install -r requirements.txt -r requirements-voice.txt",
 
-  // Starta servern automatiskt varje gång codespacet öppnas
-  "postAttachCommand": "uvicorn server:app --host 0.0.0.0 --port 8000",
+  // Starta servern (+ röstbotten om DISCORD_BOT_TOKEN finns) varje gång codespacet öppnas
+  "postAttachCommand": "bash start.sh",
 
   "forwardPorts": [8000],
   "portsAttributes": {
@@ -20,6 +20,9 @@
   "secrets": {
     "ANTHROPIC_API_KEY": {
       "description": "API-nyckel från platform.claude.com (obligatorisk)"
+    },
+    "DISCORD_BOT_TOKEN": {
+      "description": "Valfri. Bot-token från discord.com/developers — startar Discord-röstbotten automatiskt."
     },
     "GAME_HELPER_MODEL": {
       "description": "Valfri. Standard: claude-opus-4-8. Sätt claude-haiku-4-5 för lägre latens/kostnad."
