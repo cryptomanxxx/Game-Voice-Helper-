@@ -1,0 +1,8 @@
+# Discord-röstbotten (discord_voice_bot.py) — utöver requirements.txt
+# Kräver även systempaketen: ffmpeg, libopus0
+discord.py[voice]>=2.4
+# voice-recv släpps endast som alfaversioner — måste pekas ut explicit
+discord-ext-voice-recv>=0.5.2a179
+faster-whisper>=1.0
+edge-tts>=6.1
+numpy>=1.26

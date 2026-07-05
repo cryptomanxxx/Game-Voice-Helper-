@@ -36,6 +36,9 @@ spelets värld utan att spoila.
 - **Manuell skärmbildsuppladdning** — funkar även utan stream
 - **Anti-spoiler** — systemprompten instruerar modellen att inte avslöja handling
   längre fram än där du är
+- **Discord-röstbot (valfri)** — sitter i din röstkanal, hör frågan via
+  PS5:ns Discord-stöd och svarar med röst direkt i headsetet — plattan behövs
+  inte alls medan du spelar
 - **Discord-textbot (valfri)** — `!fraga <fråga>` i valfri kanal
 
 ## Kom igång
@@ -136,6 +139,67 @@ i Chrome på plattan.
 - Gratiskvoten (120 kärntimmar/månad ≈ 60 timmar på minsta maskinen) ser du på
   <https://github.com/settings/billing>.
 
+## Discord-röstbot — prata helt via headsetet 🎧
+
+Det ultimata VR-läget: du sitter i en Discord-röstkanal via PS5:ns inbyggda
+Discord-stöd. Boten sitter i samma kanal, hör din fråga genom headsetets
+mikrofon och svarar med röst **direkt i dina hörlurar**. Surfplattan behövs
+inte alls medan du spelar.
+
+```
+Du (PSVR2-mik) → Discord-röstkanal → whisper (svensk taligenkänning, lokalt)
+                                          │
+              hörlurarna ← edge-tts ← Claude (ser din Twitch-ström)
+```
+
+### Engångssetup
+
+**1. Skapa boten** (på [discord.com/developers/applications](https://discord.com/developers/applications)):
+
+- **New Application** → valfritt namn → fliken **Bot**
+- **Reset Token** → kopiera token (detta är din `DISCORD_BOT_TOKEN`)
+- Slå på **Message Content Intent** under *Privileged Gateway Intents*
+
+**2. Bjud in boten till din server:**
+
+- Skapa en egen Discord-server om du inte har en (gratis, i Discord-appen)
+- Under **OAuth2 → URL Generator**: bocka i scope `bot` och rättigheterna
+  *View Channels*, *Connect*, *Speak*, *Send Messages*
+- Öppna den genererade URL:en och välj din server
+
+**3. Lägg in token:** kör du i Codespaces, lägg till `DISCORD_BOT_TOKEN` som
+secret på <https://github.com/settings/codespaces> (precis som API-nyckeln).
+Lokalt: lägg den i `.env`. Starta om — `start.sh` startar boten automatiskt
+när token finns.
+
+**4. Länka Discord till PS5:n:** PS5-inställningar → **Användare och konton**
+→ **Länkade tjänster** → **Discord**.
+
+### Varje spelkväll
+
+1. Gå med i röstkanalen från Discord-appen på mobilen och välj
+   **Överför till PlayStation** (svep upp på samtalskortet) — nu går
+   Discord-ljudet genom PS5:n och headsetet
+2. Boten ansluter automatiskt när du dyker upp och hälsar
+3. Säg **"hej kompis"** följt av frågan: *"hej kompis, hur öppnar jag dörren?"*
+4. Boten säger "Jag kollar!", tittar på din stream och läser upp svaret
+   i hörlurarna
+
+**Röstkommandon för läge:** *"hej kompis **direkt svar** var är nyckeln"* ger
+rakt svar istället för ledtråd; *"hej kompis **kontroller** hur greppar jag"*
+ger knapp-hjälp.
+
+**Justering** (miljövariabler): `GAME_HELPER_VAKNINGSFRAS` byter fras,
+`GAME_HELPER_LYSSNA_ALLT=1` gör varje mening till en fråga (bra när du är
+ensam i kanalen), `GAME_HELPER_WHISPER` väljer taligenkänningsmodell
+(`tiny`/`base`/`small`/`medium` — större = träffsäkrare men långsammare),
+`GAME_HELPER_TTS_ROST` byter svensk röst.
+
+**Bra att veta:** taligenkänningen (whisper) körs lokalt utan extra
+API-nyckel; första starten laddar ner modellen (~500 MB). Räkna med några
+sekunders svarstid från fråga till uppläst svar. Textkommandona `!join` och
+`!lamna` finns som reservväg om boten inte hänger med automatiskt.
+
 ### Valfritt: Discord-textbot
 
 ```bash
@@ -168,8 +232,8 @@ Kommandon: `!fraga …` (ledtråd) · `!svar …` (direkt) · `!kontroller …`
 
 ## Roadmap
 
-- [ ] **Discord-röstkanal** — boten sitter i röstkanalen, lyssnar (py-cord voice receive)
-      och svarar med TTS-ljud direkt i kanalen. Då behövs ingen webbläsare alls.
+- [x] **Discord-röstkanal** — boten sitter i röstkanalen, lyssnar och svarar med
+      TTS-ljud direkt i kanalen. Ingen webbläsare behövs. (`discord_voice_bot.py`)
 - [ ] **Konversationsminne** — följdfrågor ("och sen då?") med bibehållen kontext
 - [ ] **Handlingssammanfattning** — "vad har hänt hittills?" baserat på spelets story
       + hur långt du kommit enligt skärmbilden
