@@ -24,6 +24,9 @@ spelets värld utan att spoila.
 - **Twitch-frame-capture** — hämtar senaste bildrutan från din livestream var 3:e sekund
   (streamlink + ffmpeg, ingen tung videohantering i Python)
 - **Push-to-talk i webbläsaren** — håll in knappen, prata svenska (Web Speech API)
+- **Handsfree-läge med väckningsfras** — plattan lyssnar hela tiden; säg
+  *"hej kompis, hur öppnar jag dörren?"* utan att röra skärmen. Byggt för VR:
+  du behöver varken se eller ta på plattan
 - **Vision-AI** — bildruta + fråga skickas till Claude som svarar kort på svenska
 - **Text-till-tal** — svaret läses upp automatiskt (webbläsarens svenska röst)
 - **Tre lägen:**
@@ -79,6 +82,24 @@ uvicorn server:app --port 8000
 
 **Tips för VR:** öppna sidan på surfplattan bredvid dig, eller kör den i telefonen.
 Push-to-talk-knappen är stor med flit — den ska gå att träffa med VR-headsetet på.
+
+### Handsfree-läge (för VR — rör aldrig plattan)
+
+Med VR-headset och hörlurar på vill du varken se eller ta på plattan. Slå på
+**🎧 Handsfree** *innan* du sätter på dig headsetet:
+
+1. Tryck på **🎧 Handsfree**-knappen — plattan börjar lyssna kontinuerligt
+2. Säg väckningsfrasen följt av frågan i ett svep:
+   *"Hej kompis, hur öppnar jag den här dörren?"*
+3. Ett pip bekräftar att frågan uppfattats, och svaret läses upp automatiskt
+4. Säger du bara *"hej kompis"* svarar den *"Ja?"* och väntar på din fråga
+
+Väckningsfrasen går att byta i fältet bredvid knappen (sparas i webbläsaren).
+Lyssningen pausas automatiskt medan svaret läses upp, så AI:n hör inte sig själv.
+
+**Ljudtips:** höj plattans mediavolym till max så att svaret hörs genom
+hörlurarna. Stänger dina hörlurar ute allt ljud är nästa steg på roadmapen
+Discord-röstbotten — då går både fråga och svar via headsetet.
 
 ## Ingen dator? Kör i molnet med GitHub Codespaces
 
