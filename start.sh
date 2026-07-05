@@ -7,6 +7,15 @@
 
 cd "$(dirname "$0")"
 
+# Läs .env om den finns (lokal körning) — i Codespaces kommer variablerna
+# som secrets istället. Värden med mellanslag måste vara citerade i .env.
+if [ -f .env ]; then
+  set -a
+  # shellcheck disable=SC1091
+  . ./.env
+  set +a
+fi
+
 if curl -sf -o /dev/null --max-time 2 http://127.0.0.1:8000/api/status; then
   echo "Servern kör redan på port 8000 (logg: /tmp/game-helper-server.log)."
 else
