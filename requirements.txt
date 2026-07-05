@@ -1,0 +1,8 @@
+fastapi>=0.110
+uvicorn>=0.29
+anthropic>=0.50
+streamlink>=6.7
+requests>=2.31
+
+# Valfritt — endast för Discord-textboten (discord_bot.py)
+# discord.py>=2.3

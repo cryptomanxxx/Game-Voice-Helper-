@@ -1,0 +1,241 @@
+<!DOCTYPE html>
+<html lang="sv">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>🎮 Game Voice Helper</title>
+<style>
+  :root { color-scheme: dark; }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; padding: 24px; min-height: 100vh;
+    font-family: system-ui, -apple-system, sans-serif;
+    background: #0d1117; color: #e6edf3;
+    display: flex; flex-direction: column; align-items: center; gap: 18px;
+  }
+  h1 { margin: 0; font-size: 1.5rem; }
+  .sub { color: #8b949e; margin: 0; font-size: .9rem; }
+  .card {
+    width: 100%; max-width: 720px; background: #161b22;
+    border: 1px solid #30363d; border-radius: 12px; padding: 16px;
+    display: flex; flex-direction: column; gap: 12px;
+  }
+  label { font-size: .8rem; color: #8b949e; }
+  input[type=text] {
+    width: 100%; padding: 10px 12px; border-radius: 8px;
+    border: 1px solid #30363d; background: #0d1117; color: #e6edf3; font-size: .95rem;
+  }
+  button {
+    padding: 10px 16px; border-radius: 8px; border: 1px solid #30363d;
+    background: #21262d; color: #e6edf3; font-size: .95rem; cursor: pointer;
+  }
+  button:hover { background: #30363d; }
+  button.primary { background: #1f6feb; border-color: #1f6feb; }
+  button.primary:hover { background: #388bfd; }
+  button:disabled { opacity: .45; cursor: not-allowed; }
+  .row { display: flex; gap: 10px; flex-wrap: wrap; align-items: center; }
+  .grow { flex: 1; min-width: 180px; }
+  #frame {
+    width: 100%; border-radius: 8px; background: #010409; aspect-ratio: 16/9;
+    object-fit: contain; border: 1px solid #30363d;
+  }
+  .modes { display: flex; gap: 8px; flex-wrap: wrap; }
+  .modes button.active { background: #1f6feb; border-color: #1f6feb; }
+  #ptt {
+    width: 130px; height: 130px; border-radius: 50%; font-size: 2.4rem;
+    align-self: center; border: 3px solid #30363d; background: #21262d;
+    transition: transform .1s, background .2s;
+  }
+  #ptt.listening { background: #da3633; border-color: #f85149; transform: scale(1.08); }
+  #svar {
+    min-height: 60px; padding: 12px; border-radius: 8px; background: #0d1117;
+    border: 1px solid #30363d; white-space: pre-wrap; line-height: 1.5;
+  }
+  .status { font-size: .8rem; color: #8b949e; }
+  .dot { display: inline-block; width: 8px; height: 8px; border-radius: 50%; background: #f85149; margin-right: 6px; }
+  .dot.on { background: #3fb950; }
+</style>
+</head>
+<body>
+  <h1>🎮 Game Voice Helper</h1>
+  <p class="sub">Prata med AI:n medan du spelar — den ser din stream och svarar med röst.</p>
+
+  <div class="card">
+    <label>Twitch-stream (din PS5-livestream)</label>
+    <div class="row">
+      <input type="text" id="twitchUrl" class="grow" placeholder="https://www.twitch.tv/dittkanalnamn">
+      <button id="startBtn" class="primary">Starta</button>
+      <button id="stopBtn">Stoppa</button>
+    </div>
+    <div class="status"><span class="dot" id="streamDot"></span><span id="streamStatus">Ingen ström ansluten</span></div>
+    <img id="frame" alt="Senaste bildrutan visas här" src="">
+    <div class="row">
+      <label class="grow">…eller ladda upp en skärmbild manuellt:</label>
+      <input type="file" id="shotFile" accept="image/*">
+    </div>
+  </div>
+
+  <div class="card">
+    <label>Läge</label>
+    <div class="modes">
+      <button data-mode="ledtrad" class="active">💡 Ledtråd</button>
+      <button data-mode="direkt">🎯 Direkt svar</button>
+      <button data-mode="kontroller">🎮 Kontroller & hjälp</button>
+    </div>
+
+    <button id="ptt" title="Håll intryckt och prata">🎙️</button>
+    <div class="status" id="pttStatus" style="text-align:center">Håll knappen intryckt och ställ din fråga (svenska)</div>
+
+    <div class="row">
+      <input type="text" id="textFraga" class="grow" placeholder="…eller skriv din fråga här">
+      <button id="sendBtn" class="primary">Fråga</button>
+    </div>
+
+    <label>Svar</label>
+    <div id="svar">–</div>
+    <div class="row">
+      <button id="repeatBtn">🔊 Läs upp igen</button>
+      <span class="status" id="bildkalla"></span>
+    </div>
+  </div>
+
+<script>
+let mode = "ledtrad";
+let lastSvar = "";
+let uploadedB64 = null;
+
+const $ = id => document.getElementById(id);
+
+// ---------- Lägen ----------
+document.querySelectorAll(".modes button").forEach(b => {
+  b.onclick = () => {
+    document.querySelectorAll(".modes button").forEach(x => x.classList.remove("active"));
+    b.classList.add("active");
+    mode = b.dataset.mode;
+  };
+});
+
+// ---------- Stream ----------
+$("startBtn").onclick = async () => {
+  const url = $("twitchUrl").value.trim();
+  if (!url) return alert("Klistra in din Twitch-URL först.");
+  $("streamStatus").textContent = "Ansluter…";
+  const r = await fetch("/api/stream/start", {
+    method: "POST", headers: {"Content-Type": "application/json"},
+    body: JSON.stringify({url})
+  });
+  if (!r.ok) {
+    const e = await r.json().catch(() => ({}));
+    $("streamStatus").textContent = "Fel: " + (e.detail || r.status);
+    return;
+  }
+  $("streamStatus").textContent = "Ansluten — hämtar bildrutor…";
+};
+
+$("stopBtn").onclick = async () => {
+  await fetch("/api/stream/stop", {method: "POST"});
+  $("streamStatus").textContent = "Stoppad";
+};
+
+// Poll status + förhandsvisning av senaste bildrutan
+setInterval(async () => {
+  try {
+    const s = await (await fetch("/api/status")).json();
+    const fresh = s.running && s.frame_age_s !== null && s.frame_age_s < 30;
+    $("streamDot").classList.toggle("on", fresh);
+    if (fresh) {
+      $("streamStatus").textContent = `Live — bildruta ${Math.round(s.frame_age_s)}s gammal`;
+      $("frame").src = "/api/frame?t=" + Date.now();
+    }
+  } catch {}
+}, 3000);
+
+// ---------- Skärmbildsuppladdning ----------
+$("shotFile").onchange = () => {
+  const f = $("shotFile").files[0];
+  if (!f) { uploadedB64 = null; return; }
+  const reader = new FileReader();
+  reader.onload = () => {
+    uploadedB64 = reader.result;         // data-URL, servern klipper prefixet
+    $("frame").src = reader.result;      // visa direkt
+    $("bildkalla").textContent = "Använder uppladdad skärmbild för nästa fråga";
+  };
+  reader.readAsDataURL(f);
+};
+
+// ---------- Fråga ----------
+async function ask(fraga) {
+  if (!fraga.trim()) return;
+  $("svar").textContent = "Tänker…";
+  const body = {fraga, mode, screenshot_b64: uploadedB64, use_stream: true};
+  uploadedB64 = null; $("shotFile").value = "";
+  try {
+    const r = await fetch("/api/ask", {
+      method: "POST", headers: {"Content-Type": "application/json"},
+      body: JSON.stringify(body)
+    });
+    const data = await r.json();
+    if (!r.ok) throw new Error(data.detail || r.status);
+    lastSvar = data.svar;
+    $("svar").textContent = data.svar;
+    $("bildkalla").textContent = {twitch: "📺 Såg din stream", uppladdad: "🖼️ Såg din skärmbild", ingen: "👁️ Ingen bild — svarade blint"}[data.bildkalla] || "";
+    speak(data.svar);
+  } catch (e) {
+    $("svar").textContent = "Fel: " + e.message;
+  }
+}
+
+$("sendBtn").onclick = () => ask($("textFraga").value);
+$("textFraga").onkeydown = e => { if (e.key === "Enter") ask($("textFraga").value); };
+$("repeatBtn").onclick = () => speak(lastSvar);
+
+// ---------- Text-till-tal (svenska) ----------
+function speak(text) {
+  if (!text || !window.speechSynthesis) return;
+  speechSynthesis.cancel();
+  const u = new SpeechSynthesisUtterance(text);
+  u.lang = "sv-SE";
+  const sv = speechSynthesis.getVoices().find(v => v.lang.startsWith("sv"));
+  if (sv) u.voice = sv;
+  speechSynthesis.speak(u);
+}
+
+// ---------- Push-to-talk (Web Speech API, sv-SE) ----------
+const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+let rec = null;
+if (SR) {
+  rec = new SR();
+  rec.lang = "sv-SE";
+  rec.interimResults = true;
+  rec.continuous = false;
+
+  let transcript = "";
+  rec.onresult = e => {
+    transcript = Array.from(e.results).map(r => r[0].transcript).join(" ");
+    $("pttStatus").textContent = "🎙️ " + transcript;
+  };
+  rec.onend = () => {
+    $("ptt").classList.remove("listening");
+    if (transcript.trim()) {
+      $("textFraga").value = transcript;
+      ask(transcript);
+    } else {
+      $("pttStatus").textContent = "Hörde inget — prova igen";
+    }
+    transcript = "";
+  };
+  rec.onerror = e => { $("pttStatus").textContent = "Mikrofonfel: " + e.error; };
+
+  const start = e => { e.preventDefault(); transcript = ""; $("ptt").classList.add("listening"); $("pttStatus").textContent = "Lyssnar…"; try { rec.start(); } catch {} };
+  const stop  = e => { e.preventDefault(); try { rec.stop(); } catch {} };
+  $("ptt").addEventListener("mousedown", start);
+  $("ptt").addEventListener("mouseup", stop);
+  $("ptt").addEventListener("touchstart", start, {passive: false});
+  $("ptt").addEventListener("touchend", stop);
+} else {
+  $("ptt").disabled = true;
+  $("pttStatus").textContent = "Röstinmatning stöds inte i denna webbläsare (använd Chrome/Edge) — skriv frågan istället.";
+}
+</script>
+</body>
+</html>
